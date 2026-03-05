@@ -21,27 +21,6 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Glassmorphism utility */
-.glass {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-}
-
-.terminal-bg {
-    background: #0d1117;
-}
-
-.gradient-button {
-    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-    transition: all 0.2s ease;
-}
-
-.gradient-button:hover {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
-}
-
-.gradient-button:active {
-    transform: translateY(0);
+#root {
+    min-height: 100vh;
 }

@@ -16,42 +16,36 @@ global.doGet = (_e: GoogleAppsScript.Events.DoGet) => {
         .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 };
 
-/**
- * Frontend API: Get all todos
- */
-global.getTodos = () => {
-    return JSON.stringify(TodoService.getTodos());
-};
+function toJson<T>(value: T): string {
+    return JSON.stringify(value);
+}
 
-/**
- * Frontend API: Add a new todo
- * Validates that the title is a non-empty string within the allowed length.
- */
-global.addTodo = (title: string) => {
+function ensureValidTitle(title: string): string {
     if (!isValidTitle(title)) {
         throw new Error(`Invalid title: must be a non-empty string (max ${MAX_TITLE_LENGTH} characters).`);
     }
-    return JSON.stringify(TodoService.addTodo(title.trim()));
+    return title.trim();
+}
+
+function ensureValidId(id: string): string {
+    if (!isValidId(id)) {
+        throw new Error('Invalid id: must be a valid UUID v4.');
+    }
+    return id;
+}
+
+global.getTodos = () => {
+    return toJson(TodoService.getTodos());
 };
 
-/**
- * Frontend API: Toggle a todo
- * Validates that the id is a valid UUID v4 to prevent arbitrary key manipulation.
- */
+global.addTodo = (title: string) => {
+    return toJson(TodoService.addTodo(ensureValidTitle(title)));
+};
+
 global.toggleTodo = (id: string) => {
-    if (!isValidId(id)) {
-        throw new Error('Invalid id: must be a valid UUID v4.');
-    }
-    return JSON.stringify(TodoService.toggleTodo(id));
+    return toJson(TodoService.toggleTodo(ensureValidId(id)));
 };
 
-/**
- * Frontend API: Delete a todo
- * Validates that the id is a valid UUID v4 to prevent arbitrary key manipulation.
- */
 global.deleteTodo = (id: string) => {
-    if (!isValidId(id)) {
-        throw new Error('Invalid id: must be a valid UUID v4.');
-    }
-    return JSON.stringify({ success: TodoService.deleteTodo(id) });
+    return toJson({ success: TodoService.deleteTodo(ensureValidId(id)) });
 };

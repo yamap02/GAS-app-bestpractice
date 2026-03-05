@@ -1,66 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Todo } from '../types/todo';
+import { useState } from 'react';
+import { MAX_TODO_TITLE_LENGTH } from '../constants/todo';
+import { useTodos } from '../hooks/useTodos';
+import { ErrorBanner } from './ErrorBanner';
 import { TodoItem } from './TodoItem';
-import * as gasApi from '../api/gasApi';
-
-/* ------------------------------------------------------------------ */
-/* Simple inline error toast                                            */
-/* ------------------------------------------------------------------ */
-
-interface ErrorBannerProps {
-    message: string;
-    onDismiss: () => void;
-}
-
-function ErrorBanner({ message, onDismiss }: ErrorBannerProps) {
-    return (
-        <div
-            role="alert"
-            className="flex items-center justify-between gap-2 px-4 py-3 mb-4 bg-red-50 border border-red-300 rounded-lg text-red-700 text-sm"
-        >
-            <span>{message}</span>
-            <button
-                onClick={onDismiss}
-                aria-label="エラーを閉じる"
-                className="shrink-0 text-red-500 hover:text-red-700"
-            >
-                ✕
-            </button>
-        </div>
-    );
-}
-
-/* ------------------------------------------------------------------ */
-/* TodoList                                                             */
-/* ------------------------------------------------------------------ */
 
 export function TodoList() {
-    const [todos, setTodos] = useState<Todo[]>([]);
     const [inputValue, setInputValue] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-    const showError = (msg: string) => setErrorMessage(msg);
-    const clearError = () => setErrorMessage(null);
-
-    /** Load all todos from GAS (or mock in local dev). */
-    const loadTodos = useCallback(async () => {
-        setIsLoading(true);
-        clearError();
-        try {
-            const data = await gasApi.getTodos();
-            setTodos(data);
-        } catch (err) {
-            console.error('Failed to load todos:', err);
-            showError('タスクの読み込みに失敗しました。ページを再読み込みしてください。');
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        loadTodos();
-    }, [loadTodos]);
+    const { todos, isLoading, errorMessage, clearError, addTodo, toggleTodo, deleteTodo, completedCount } = useTodos();
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -68,45 +14,9 @@ export function TodoList() {
         if (!title) return;
 
         setInputValue(''); // Optimistic clear
-        clearError();
-
-        try {
-            const newTodo = await gasApi.addTodo(title);
-            setTodos((prev) => [...prev, newTodo]);
-        } catch (err) {
-            console.error('Failed to add todo:', err);
+        const didAdd = await addTodo(title);
+        if (!didAdd) {
             setInputValue(title); // Revert on error
-            showError(err instanceof Error ? err.message : 'タスクの追加に失敗しました。');
-        }
-    };
-
-    const handleToggle = async (id: string) => {
-        // Optimistic update
-        setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
-        clearError();
-
-        try {
-            await gasApi.toggleTodo(id);
-        } catch (err) {
-            console.error('Failed to toggle todo:', err);
-            // Revert on error
-            setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
-            showError('タスクの更新に失敗しました。');
-        }
-    };
-
-    const handleDelete = async (id: string) => {
-        const previousTodos = [...todos];
-        // Optimistic update
-        setTodos((prev) => prev.filter((t) => t.id !== id));
-        clearError();
-
-        try {
-            await gasApi.deleteTodo(id);
-        } catch (err) {
-            console.error('Failed to delete todo:', err);
-            setTodos(previousTodos); // Revert on error
-            showError('タスクの削除に失敗しました。');
         }
     };
 
@@ -122,7 +32,7 @@ export function TodoList() {
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     placeholder="What needs to be done?"
-                    maxLength={500}
+                    maxLength={MAX_TODO_TITLE_LENGTH}
                     className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800"
                 />
                 <button
@@ -142,7 +52,7 @@ export function TodoList() {
                 ) : (
                     <ul className="divide-y divide-gray-200">
                         {todos.map((todo) => (
-                            <TodoItem key={todo.id} todo={todo} onToggle={handleToggle} onDelete={handleDelete} />
+                            <TodoItem key={todo.id} todo={todo} onToggle={toggleTodo} onDelete={deleteTodo} />
                         ))}
                     </ul>
                 )}
@@ -150,7 +60,7 @@ export function TodoList() {
 
             {!isLoading && todos.length > 0 && (
                 <div className="mt-4 text-sm text-gray-500 text-center">
-                    {todos.filter((t) => t.completed).length} of {todos.length} tasks completed
+                    {completedCount} of {todos.length} tasks completed
                 </div>
             )}
         </div>

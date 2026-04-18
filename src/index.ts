@@ -1,3 +1,4 @@
+import { toJson } from './todoCodec';
 import { TodoService } from './todoService';
 import { isValidTitle, isValidId, MAX_TITLE_LENGTH } from './validation';
 
@@ -16,9 +17,7 @@ global.doGet = (_e: GoogleAppsScript.Events.DoGet) => {
         .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 };
 
-function toJson<T>(value: T): string {
-    return JSON.stringify(value);
-}
+const todoService = TodoService.createDefault();
 
 function ensureValidTitle(title: string): string {
     if (!isValidTitle(title)) {
@@ -35,17 +34,17 @@ function ensureValidId(id: string): string {
 }
 
 global.getTodos = () => {
-    return toJson(TodoService.getTodos());
+    return toJson(todoService.getTodos());
 };
 
 global.addTodo = (title: string) => {
-    return toJson(TodoService.addTodo(ensureValidTitle(title)));
+    return toJson(todoService.addTodo(ensureValidTitle(title)));
 };
 
 global.toggleTodo = (id: string) => {
-    return toJson(TodoService.toggleTodo(ensureValidId(id)));
+    return toJson({ todo: todoService.toggleTodo(ensureValidId(id)) });
 };
 
 global.deleteTodo = (id: string) => {
-    return toJson({ success: TodoService.deleteTodo(ensureValidId(id)) });
+    return toJson({ success: todoService.deleteTodo(ensureValidId(id)) });
 };

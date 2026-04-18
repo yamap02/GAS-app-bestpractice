@@ -74,11 +74,11 @@ interface Todo {
 - 主な責務
   - `frontend/src/api/gasApi.ts`
     - `google.script.run` 呼び出し
-    - レスポンス JSON パース
+    - レスポンス契約ごとの JSON パース
     - 型ガード
   - `frontend/src/hooks/useTodos.ts`
     - 一覧取得
-    - 楽観更新
+    - 楽観更新とロールバック
     - エラー状態管理
   - `frontend/src/components/TodoList.tsx`
     - 入力フォーム
@@ -91,8 +91,9 @@ interface Todo {
 .
 ├── src/                     # GAS バックエンド
 │   ├── index.ts             # GAS 公開関数
+│   ├── todoCodec.ts         # ToDo JSON 変換 / 型ガード
+│   ├── todoRepository.ts    # Properties/Cache 永続化
 │   ├── todoService.ts       # ToDo 操作
-│   ├── todoStore.ts         # Properties/Cache 永続化
 │   ├── validation.ts        # 入力検証
 │   └── tests/               # Jest テスト
 ├── frontend/                # React フロントエンド
@@ -214,11 +215,14 @@ npm run open
 - `src/tests/validation.test.ts`
   - タイトル制約
   - UUID v4 検証
-- `src/tests/todoService.test.ts`
+- `src/tests/todoRepository.test.ts`
   - キャッシュ優先読み取り
   - 永続化フォールバック
   - 不正データ時のリセット
-  - 追加時の保存更新
+  - 保存時のキャッシュ同期
+- `src/tests/todoService.test.ts`
+  - 追加時の依存注入
+  - 切り替え・削除時の副作用境界
 
 フロントエンドの自動テスト未整備。
 

@@ -1,25 +1,42 @@
-import { Todo } from './todoTypes';
-import { TodoStore } from './todoStore';
+import { TodoRepository } from './todoRepository';
+import type { Todo } from './todoTypes';
+
+type TodoServiceDependencies = {
+    createId: () => string;
+    getCurrentTime: () => number;
+};
 
 export class TodoService {
-    static getTodos(): Todo[] {
-        return TodoStore.readTodos();
+    static createDefault(): TodoService {
+        return new TodoService(TodoRepository.createUserScoped(), {
+            createId: () => Utilities.getUuid(),
+            getCurrentTime: () => Date.now(),
+        });
     }
 
-    static addTodo(title: string): Todo {
-        const todos = TodoStore.readTodos();
+    constructor(
+        private readonly repository: Pick<TodoRepository, 'readTodos' | 'writeTodos'>,
+        private readonly dependencies: TodoServiceDependencies,
+    ) {}
+
+    getTodos(): Todo[] {
+        return this.repository.readTodos();
+    }
+
+    addTodo(title: string): Todo {
+        const todos = this.repository.readTodos();
         const newTodo: Todo = {
-            id: Utilities.getUuid(),
+            id: this.dependencies.createId(),
             title,
             completed: false,
-            createdAt: Date.now(),
+            createdAt: this.dependencies.getCurrentTime(),
         };
-        TodoStore.writeTodos([...todos, newTodo]);
+        this.repository.writeTodos([...todos, newTodo]);
         return newTodo;
     }
 
-    static toggleTodo(id: string): Todo | null {
-        const todos = TodoStore.readTodos();
+    toggleTodo(id: string): Todo | null {
+        const todos = this.repository.readTodos();
         const index = todos.findIndex((t) => t.id === id);
         if (index === -1) return null;
 
@@ -27,17 +44,17 @@ export class TodoService {
         const updatedTodos = [...todos];
         updatedTodos[index] = updatedTodo;
 
-        TodoStore.writeTodos(updatedTodos);
+        this.repository.writeTodos(updatedTodos);
         return updatedTodo;
     }
 
-    static deleteTodo(id: string): boolean {
-        const todos = TodoStore.readTodos();
+    deleteTodo(id: string): boolean {
+        const todos = this.repository.readTodos();
         const initialLength = todos.length;
         const newTodos = todos.filter((t) => t.id !== id);
 
         if (newTodos.length !== initialLength) {
-            TodoStore.writeTodos(newTodos);
+            this.repository.writeTodos(newTodos);
             return true;
         }
         return false;

@@ -1,4 +1,5 @@
 import type { Todo } from '../types/todo';
+import type { DeleteTodoResponse, ToggleTodoResponse } from './contracts';
 import { MAX_TODO_TITLE_LENGTH } from '../constants/todo';
 
 type GasMethod = 'getTodos' | 'addTodo' | 'toggleTodo' | 'deleteTodo';
@@ -17,6 +18,23 @@ function isTodo(value: unknown): value is Todo {
 
 function isTodoArray(value: unknown): value is Todo[] {
     return Array.isArray(value) && value.every(isTodo);
+}
+
+function isDeleteTodoResponse(value: unknown): value is DeleteTodoResponse {
+    return (
+        value !== null &&
+        typeof value === 'object' &&
+        typeof (value as DeleteTodoResponse).success === 'boolean'
+    );
+}
+
+function isToggleTodoResponse(value: unknown): value is ToggleTodoResponse {
+    return (
+        value !== null &&
+        typeof value === 'object' &&
+        'todo' in value &&
+        (((value as ToggleTodoResponse).todo === null) || isTodo((value as ToggleTodoResponse).todo))
+    );
 }
 
 function isGasAvailable(): boolean {
@@ -87,12 +105,12 @@ export async function addTodo(title: string): Promise<Todo> {
     return parseJson(await callGas('addTodo', trimmed), isTodo, 'Unexpected response format for addTodo');
 }
 
-export async function toggleTodo(id: string): Promise<void> {
-    if (!isGasAvailable()) return;
-    await callGas('toggleTodo', id);
+export async function toggleTodo(id: string): Promise<Todo | null> {
+    if (!isGasAvailable()) return null;
+    return parseJson(await callGas('toggleTodo', id), isToggleTodoResponse, 'Unexpected response format for toggleTodo').todo;
 }
 
-export async function deleteTodo(id: string): Promise<void> {
-    if (!isGasAvailable()) return;
-    await callGas('deleteTodo', id);
+export async function deleteTodo(id: string): Promise<boolean> {
+    if (!isGasAvailable()) return true;
+    return parseJson(await callGas('deleteTodo', id), isDeleteTodoResponse, 'Unexpected response format for deleteTodo').success;
 }

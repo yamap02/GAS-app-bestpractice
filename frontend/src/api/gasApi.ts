@@ -1,41 +1,16 @@
 import type { Todo } from '../types/todo';
-import type { DeleteTodoResponse, ToggleTodoResponse } from './contracts';
 import { MAX_TODO_TITLE_LENGTH } from '../constants/todo';
+import {
+    assertSafeTodoId,
+    createMockTodo,
+    parseDeleteTodoPayload,
+    parseTodoListPayload,
+    parseTodoPayload,
+    parseToggleTodoPayload,
+} from './gasSecurity';
 
 type GasMethod = 'getTodos' | 'addTodo' | 'toggleTodo' | 'deleteTodo';
 type GasRunnerApi = Window['google']['script']['run'];
-
-function isTodo(value: unknown): value is Todo {
-    return (
-        value !== null &&
-        typeof value === 'object' &&
-        typeof (value as Todo).id === 'string' &&
-        typeof (value as Todo).title === 'string' &&
-        typeof (value as Todo).completed === 'boolean' &&
-        typeof (value as Todo).createdAt === 'number'
-    );
-}
-
-function isTodoArray(value: unknown): value is Todo[] {
-    return Array.isArray(value) && value.every(isTodo);
-}
-
-function isDeleteTodoResponse(value: unknown): value is DeleteTodoResponse {
-    return (
-        value !== null &&
-        typeof value === 'object' &&
-        typeof (value as DeleteTodoResponse).success === 'boolean'
-    );
-}
-
-function isToggleTodoResponse(value: unknown): value is ToggleTodoResponse {
-    return (
-        value !== null &&
-        typeof value === 'object' &&
-        'todo' in value &&
-        (((value as ToggleTodoResponse).todo === null) || isTodo((value as ToggleTodoResponse).todo))
-    );
-}
 
 function isGasAvailable(): boolean {
     return (
@@ -77,19 +52,15 @@ function callGas(method: GasMethod, ...args: unknown[]): Promise<string> {
     });
 }
 
-function parseJson<T>(raw: string, guard: (value: unknown) => value is T, errorMessage: string): T {
-    const parsed: unknown = JSON.parse(raw);
-    if (!guard(parsed)) {
-        throw new Error(errorMessage);
-    }
-    return parsed;
+function parseJson<T>(raw: string, parser: (value: unknown, errorContext: string) => T, errorContext: string): T {
+    return parser(JSON.parse(raw) as unknown, errorContext);
 }
 
 export async function getTodos(): Promise<Todo[]> {
     if (!isGasAvailable()) {
-        return [{ id: '1', title: 'Start using the ToDo app', completed: false, createdAt: Date.now() }];
+        return [createMockTodo({ title: 'Start using the ToDo app', createdAt: Date.now() })];
     }
-    return parseJson(await callGas('getTodos'), isTodoArray, 'Unexpected response format for getTodos');
+    return parseJson(await callGas('getTodos'), parseTodoListPayload, 'getTodos');
 }
 
 export async function addTodo(title: string): Promise<Todo> {
@@ -100,17 +71,19 @@ export async function addTodo(title: string): Promise<Todo> {
     }
 
     if (!isGasAvailable()) {
-        return { id: Math.random().toString(), title: trimmed, completed: false, createdAt: Date.now() };
+        return createMockTodo({ title: trimmed, createdAt: Date.now() });
     }
-    return parseJson(await callGas('addTodo', trimmed), isTodo, 'Unexpected response format for addTodo');
+    return parseJson(await callGas('addTodo', trimmed), parseTodoPayload, 'addTodo');
 }
 
 export async function toggleTodo(id: string): Promise<Todo | null> {
+    const safeId = assertSafeTodoId(id);
     if (!isGasAvailable()) return null;
-    return parseJson(await callGas('toggleTodo', id), isToggleTodoResponse, 'Unexpected response format for toggleTodo').todo;
+    return parseJson(await callGas('toggleTodo', safeId), parseToggleTodoPayload, 'toggleTodo').todo;
 }
 
 export async function deleteTodo(id: string): Promise<boolean> {
+    const safeId = assertSafeTodoId(id);
     if (!isGasAvailable()) return true;
-    return parseJson(await callGas('deleteTodo', id), isDeleteTodoResponse, 'Unexpected response format for deleteTodo').success;
+    return parseJson(await callGas('deleteTodo', safeId), parseDeleteTodoPayload, 'deleteTodo').success;
 }

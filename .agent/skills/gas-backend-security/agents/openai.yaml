@@ -1,0 +1,4 @@
+interface:
+  display_name: "GAS Backend Security"
+  short_description: "GAS バックエンド設計・実装・レビュー用セキュリティ観点"
+  default_prompt: "Use $gas-backend-security to review a Google Apps Script backend design for security gaps."

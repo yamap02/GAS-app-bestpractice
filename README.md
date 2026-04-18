@@ -1,76 +1,221 @@
-# セキュリティを考慮した React ToDo App (GAS)
+# GAS ToDo App Best Practice
 
-Google Apps Script (GAS) 上で動作する、セキュリティのベストプラクティスを取り入れたシンプルなToDoアプリケーションです。
-React 19 と Tailwind CSS v4 を使用したモダンなUIを備えています。
+Google Apps Script 上で動く ToDo アプリ。
+フロントエンド `React 19 + Vite`、バックエンド `TypeScript + GAS + Webpack` 構成。
 
-## 特徴
+## 概要
 
-- **モダンなUI/UX**: React 19、Vite、Tailwind CSS v4 を採用。
-- **PropertiesService による永続化**: GASの `PropertiesService` を使用してデータを保存。
-- **セキュリティ特化設計**: バックエンド（GAS）側での厳格なバリデーション。
-- **TypeScript による一貫性**: フロントエンドからバックエンドまで型安全な開発。
+- ToDo 一覧取得
+- ToDo 追加
+- 完了状態 切り替え
+- ToDo 削除
+- GAS 側入力バリデーション
+- `PropertiesService` 永続化
+- `CacheService` 読み取りキャッシュ
+- `google.script.run` 経由でフロントエンド連携
 
-## セキュリティ対策
+## 画面と挙動
 
-本アプリでは、GASの特性を考慮した以下のセキュリティ対策を実装しています。
+- 入力欄からタスク追加
+- 一覧で完了チェック切り替え
+- 削除ボタンでタスク削除
+- 読み込み中表示
+- エラーバナー表示
+- 完了件数サマリ表示
 
-1.  **入力バリデーション (Validation)**:
-    - すべての入力値に対して、バックエンド側で型チェックと長さチェックを行っています。
-    - ToDoタイトルの最大文字数制限 (500文字) を設定。
-2.  **UUID v4 によるID管理**:
-    - ToDoのIDには UUID v4 を使用し、バックエンドで正規表現による検証を行っています。
-    - これにより、`PropertiesService` のキーに対して任意の文字列を注入することを防いでいます。
-3.  **サニタイズ (Sanitization)**:
-    - 入力値の余分な空白を `trim()` で除去。
-4.  **例外処理**:
-    - 不正なリクエストに対しては適切なエラーメッセージを返し、予期せぬ挙動を防止。
+`google.script.run` が使えないローカル開発時は、フロントエンド側フォールバックで最低限の表示確認可能。
+追加はローカルダミーデータ、更新・削除は no-op。
 
-## 開発環境
+## バックエンド仕様
 
-### バックエンド (GAS)
+- GAS エントリポイント
+  - `doGet`
+  - `getTodos`
+  - `addTodo`
+  - `toggleTodo`
+  - `deleteTodo`
+- データ形式
 
-- **TypeScript**: `src/` 配下にソースを配置。
-- **Webpack**: モジュールを `code.js` にバンドル。
-- **clasp**: デプロイ管理。
+```ts
+interface Todo {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: number;
+}
+```
 
-### フロントエンド (UI)
+- バリデーション
+  - タイトル必須
+  - タイトル最大 `500` 文字
+  - ID は UUID v4 のみ許可
+  - タイトル保存前 `trim()`
+- 永続化
+  - `PropertiesService.getUserProperties()`
+  - キー `todo_app_data`
+- キャッシュ
+  - `CacheService.getUserCache()`
+  - TTL `21600` 秒
+- 異常系
+  - 壊れたキャッシュ検出時 → キャッシュ破棄
+  - 壊れた永続データ検出時 → ストレージ初期化
 
-- **React 19 + TypeScript + Vite**: `frontend/` 配下で開発。
-- **Tailwind CSS v4**: ユーティリティファーストなスタイリング。
+`appsscript.json` は `executeAs: USER_DEPLOYING`、`access: ANYONE` 設定。
+保存先が `UserProperties` のため、実データは実行ユーザー単位。
 
-## 使い方
+## フロントエンド仕様
 
-### 1. セットアップ
+- 技術
+  - React 19
+  - TypeScript
+  - Vite
+  - Tailwind CSS v4
+  - `vite-plugin-singlefile`
+- 主な責務
+  - `frontend/src/api/gasApi.ts`
+    - `google.script.run` 呼び出し
+    - レスポンス JSON パース
+    - 型ガード
+  - `frontend/src/hooks/useTodos.ts`
+    - 一覧取得
+    - 楽観更新
+    - エラー状態管理
+  - `frontend/src/components/TodoList.tsx`
+    - 入力フォーム
+    - 一覧描画
+    - 完了件数表示
 
-1.  リポジトリのルートで `npm install`
-2.  `frontend` ディレクトリでも `npm install`
-3.  `.clasp.json.example` を `.clasp.json` にコピーし、`scriptId` を設定。
-4.  `npx clasp login` で認証。
+## ディレクトリ構成
 
-### 2. ローカル開発
+```text
+.
+├── src/                     # GAS バックエンド
+│   ├── index.ts             # GAS 公開関数
+│   ├── todoService.ts       # ToDo 操作
+│   ├── todoStore.ts         # Properties/Cache 永続化
+│   ├── validation.ts        # 入力検証
+│   └── tests/               # Jest テスト
+├── frontend/                # React フロントエンド
+├── dist/                    # デプロイ成果物
+├── webpack.config.js        # GAS バンドル設定
+├── copy-frontend.js         # frontend/dist/index.html を dist/ へコピー
+└── appsscript.json          # GAS マニフェスト
+```
 
-フロントエンドの編集・確認：
+## セットアップ
+
+### 前提
+
+- Node.js
+- npm
+- Google アカウント
+- `clasp`
+
+### 初回
+
+```bash
+npm install
+cd frontend && npm install
+cp .clasp.json.example .clasp.json
+npx clasp login
+```
+
+`.clasp.json` の `scriptId` を対象 GAS プロジェクトへ合わせて更新。
+
+## ローカル開発
+
+フロントエンド確認:
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-`http://localhost:3000` でUIを確認できます。
+Vite 開発サーバー起動。
 
-### 3. デプロイ
+バックエンドテスト:
+
+```bash
+npm test
+```
+
+バックエンド lint:
+
+```bash
+npm run lint
+```
+
+## ビルドとデプロイ
+
+本番用ビルド:
 
 ```bash
 npm run build
+```
+
+実行内容:
+
+1. `webpack` で `src/index.ts` から `dist/code.js` 生成
+2. `frontend` を単一 HTML としてビルド
+3. `frontend/dist/index.html` を `dist/index.html` へコピー
+4. `appsscript.json` を `dist/` へ配置
+
+GAS 反映:
+
+```bash
 npm run push
 ```
 
-## コマンド一覧（ルート）
+スクリプトエディタ表示:
 
-| コマンド        | 内容                                               |
-| --------------- | -------------------------------------------------- |
-| `npm run build` | フロントエンド・バックエンドのビルドと成果物の集約 |
-| `npm run push`  | GASへのデプロイ (`clasp push`)                     |
-| `npm run watch` | 変更を監視して自動ビルド                           |
-| `npm test`      | Jestによるユニットテスト実行                       |
-| `npm run open`  | GASエディタを開く                                  |
+```bash
+npm run open
+```
+
+## 利用可能コマンド
+
+ルート:
+
+| コマンド | 内容 |
+| --- | --- |
+| `npm run build` | バックエンド・フロントエンド一括ビルド |
+| `npm run build:backend` | GAS バックエンドのみビルド |
+| `npm run build:frontend` | フロントエンドのみビルド |
+| `npm run copy:frontend` | `frontend/dist/index.html` を `dist/` へコピー |
+| `npm run build:watch` | バックエンド watch |
+| `npm test` | Jest テスト |
+| `npm run lint` | バックエンド ESLint |
+| `npm run lint:fix` | バックエンド ESLint 自動修正 |
+| `npm run format` | Prettier 実行 |
+| `npm run format:check` | Prettier チェック |
+| `npm run push` | ビルド後 `clasp push` |
+| `npm run open` | GAS スクリプトエディタ起動 |
+
+`frontend/`:
+
+| コマンド | 内容 |
+| --- | --- |
+| `npm run dev` | Vite 開発サーバー |
+| `npm run build` | フロントエンド本番ビルド |
+| `npm run typecheck` | TypeScript 型検査 |
+| `npm run lint` | フロントエンド ESLint |
+| `npm run preview` | ビルド結果プレビュー |
+
+## テスト
+
+現状 Jest 対象:
+
+- `src/tests/validation.test.ts`
+  - タイトル制約
+  - UUID v4 検証
+- `src/tests/todoService.test.ts`
+  - キャッシュ優先読み取り
+  - 永続化フォールバック
+  - 不正データ時のリセット
+  - 追加時の保存更新
+
+フロントエンドの自動テスト未整備。
+
+## 補足
+
+- `frontend/README.md` は Vite 初期テンプレート由来。現行アプリ説明はこの README を正とする。

@@ -145,6 +145,12 @@ npm test
 npm run lint
 ```
 
+バックエンド format:
+
+```bash
+npm run format
+```
+
 ## ビルドとデプロイ
 
 本番用ビルド:
@@ -184,10 +190,10 @@ npm run open
 | `npm run copy:frontend` | `frontend/dist/index.html` を `dist/` へコピー |
 | `npm run build:watch` | バックエンド watch |
 | `npm test` | Jest テスト |
-| `npm run lint` | バックエンド ESLint |
-| `npm run lint:fix` | バックエンド ESLint 自動修正 |
-| `npm run format` | Prettier 実行 |
-| `npm run format:check` | Prettier チェック |
+| `npm run lint` | バックエンド oxlint |
+| `npm run lint:fix` | バックエンド oxlint 自動修正 |
+| `npm run format` | バックエンド oxfmt 実行 |
+| `npm run format:check` | バックエンド oxfmt チェック |
 | `npm run push` | ビルド後 `clasp push` |
 | `npm run open` | GAS スクリプトエディタ起動 |
 
@@ -198,7 +204,7 @@ npm run open
 | `npm run dev` | Vite 開発サーバー |
 | `npm run build` | フロントエンド本番ビルド |
 | `npm run typecheck` | TypeScript 型検査 |
-| `npm run lint` | フロントエンド ESLint |
+| `npm run lint` | フロントエンド oxlint |
 | `npm run preview` | ビルド結果プレビュー |
 
 ## テスト
